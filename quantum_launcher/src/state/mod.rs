@@ -265,7 +265,11 @@ fn load_account(
         if account.account_type.as_deref() == Some("ElyBy") || username.ends_with(" (elyby)") {
             (
                 AccountType::ElyBy,
-                ql_instances::auth::elyby::read_refresh_token(username_stripped).strerr(),
+                ql_instances::auth::read_refresh_token(
+                    username_stripped,
+                    &account.clone().account_provider.unwrap().domain()
+                )
+                .strerr(),
             )
         } else {
             (
@@ -281,6 +285,7 @@ fn load_account(
                 username.to_owned(),
                 AccountData {
                     access_token: None,
+                    client_token: account.client_token.clone(),
                     uuid: account.uuid.clone(),
                     refresh_token,
                     needs_refresh: true,

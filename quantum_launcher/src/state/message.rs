@@ -172,6 +172,9 @@ pub enum AccountMessage {
     OpenElyBy {
         is_from_welcome_screen: bool,
     },
+    OpenYggdrasil{
+        is_from_welcome_screen: bool
+    },
 
     ElyByUsernameInput(String),
     ElyByPasswordInput(String),
@@ -179,6 +182,13 @@ pub enum AccountMessage {
     ElyByShowPassword(bool),
     ElyByLogin,
     ElyByLoginResponse(Res<ql_instances::auth::elyby::Account>),
+
+    YggdrasilUsernameInput(String),
+    YggdrasilPasswordInput(String),
+    YggdrasilUrlInput(String),
+    YggdrasilShowPassword(bool),
+    YggdrasilLogin,
+    YggdrasilLoginResponse(Res<AccountData>),
 }
 
 #[derive(Debug, Clone)]

@@ -347,6 +347,16 @@ pub struct MenuLoginMS {
     pub _cancel_handle: iced::task::Handle,
 }
 
+pub struct MenuLoginYggdrasil {
+    pub url: String,
+    pub username: String,
+    pub password: String,
+
+    pub is_from_welcome_screen: bool,
+    pub show_password: bool,
+    pub is_loading:bool,
+}
+
 /// The enum that represents which menu is opened currently.
 pub enum State {
     /// Default home screen
@@ -377,6 +387,7 @@ pub enum State {
     AccountLoginProgress(ProgressBar<GenericProgress>),
     LoginMS(MenuLoginMS),
     LoginElyBy(MenuLoginElyBy),
+    LoginYggdrasil(MenuLoginYggdrasil),
     AccountLogin,
 
     InstallPaper,

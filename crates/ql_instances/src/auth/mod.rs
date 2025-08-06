@@ -1,13 +1,23 @@
-use std::fmt::Display;
-
-use crate::auth;
-
+pub mod drasl;
 pub mod elyby;
 pub mod ms;
+
+use drasl::YggdrasilProvider;
+use elyby::Error;
+use std::fmt::Display;
+
+#[derive(Debug, Clone)]
+pub enum AccountType {
+    Microsoft,
+    ElyBy,
+    Yggdrasil(YggdrasilProvider),
+}
 
 #[derive(Debug, Clone)]
 pub struct AccountData {
     pub access_token: Option<String>,
+    // aka client id
+    pub client_token: String,
     pub uuid: String,
     pub refresh_token: String,
     pub needs_refresh: bool,
@@ -20,20 +30,16 @@ pub struct AccountData {
 
 impl AccountData {
     pub fn get_username_modified(&self) -> String {
-        let suffix = match self.account_type {
-            auth::AccountType::Microsoft => "",
-            auth::AccountType::ElyBy => " (elyby)",
+        let suffix = match &self.account_type {
+            AccountType::Microsoft => "",
+            AccountType::ElyBy => " (elyby)",
+            AccountType::Yggdrasil(provider) => {
+                &format!(" ({})", provider.url.to_string().to_string())
+            }
         };
         format!("{}{suffix}", self.username)
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub enum AccountType {
-    Microsoft,
-    ElyBy,
-}
-
 impl std::fmt::Display for AccountType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -42,6 +48,7 @@ impl std::fmt::Display for AccountType {
             match self {
                 AccountType::Microsoft => "Microsoft",
                 AccountType::ElyBy => "ElyBy",
+                AccountType::Yggdrasil(_provider) => "Drasl",
             }
         )
     }
@@ -50,7 +57,7 @@ impl std::fmt::Display for AccountType {
 impl AccountData {
     #[must_use]
     pub fn is_elyby(&self) -> bool {
-        let account_type = self.account_type;
+        let account_type = &self.account_type;
         matches!(account_type, AccountType::ElyBy)
     }
 }
@@ -90,4 +97,16 @@ Now after this, in the sidebar, right click it and click "Set as Default""#
             _ => write!(f, "{}", self.0),
         }
     }
+}
+
+fn get_keyring_entry(username: &str, provider_domain: &str) -> Result<keyring::Entry, Error> {
+    Ok(keyring::Entry::new(
+        "QuantumLauncher",
+        &format!("{username}#{}", provider_domain.replace('.', "_")),
+    )?)
+}
+
+pub fn read_refresh_token(username: &str, provider_domain: &str) -> Result<String, Error> {
+    let entry = get_keyring_entry(username, provider_domain)?;
+    Ok(entry.get_password()?)
 }

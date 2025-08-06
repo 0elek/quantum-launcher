@@ -9,7 +9,7 @@ use ql_core::{err, info, info_no_log, jarmod::JarMod, InstanceSelection};
 use crate::state::{
     Launcher, MenuCreateInstance, MenuEditMods, MenuExportInstance, MenuInstallFabric,
     MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate, MenuLoginElyBy, MenuLoginMS,
-    MenuServerCreate, Message, State,
+    MenuLoginYggdrasil, MenuServerCreate, Message, State,
 };
 
 use super::{SIDEBAR_DRAG_LEEWAY, SIDEBAR_LIMIT_LEFT, SIDEBAR_LIMIT_RIGHT};
@@ -240,13 +240,14 @@ impl Launcher {
             )
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
-            | State::LauncherSettings(_)
-            | State::LoginMS(MenuLoginMS { .. })
-            | State::AccountLogin
             | State::ExportInstance(MenuExportInstance { progress: None, .. })
+            | State::LauncherSettings(_)
+            | State::AccountLogin
+            | State::LoginMS(MenuLoginMS { .. })
             | State::LoginElyBy(MenuLoginElyBy {
                 is_loading: false, ..
             })
+            | State::LoginYggdrasil(MenuLoginYggdrasil { .. })
             | State::Welcome(_) => {
                 should_return_to_main_screen = true;
             }

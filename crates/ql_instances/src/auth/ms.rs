@@ -74,9 +74,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 
-use crate::auth::AccountType;
-
-use super::{AccountData, KeyringError};
+use crate::auth::{AccountData, AccountType, KeyringError};
 
 /// The API key for logging into Minecraft.
 ///
@@ -302,6 +300,7 @@ pub async fn login_3_xbox(
     let data = AccountData {
         access_token: Some(minecraft.access_token),
         uuid: final_details.id.ok_or(Error::NoUuid)?,
+        client_token: CLIENT_ID.into(),
         refresh_token: data.refresh_token,
         needs_refresh: false,
         account_type: AccountType::Microsoft,

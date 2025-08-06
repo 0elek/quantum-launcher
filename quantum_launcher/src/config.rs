@@ -1,6 +1,7 @@
 use ql_core::{
     err, IntoIoError, IntoJsonError, JsonFileError, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
+use ql_instances::auth::drasl::YggdrasilProvider;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
@@ -165,6 +166,13 @@ pub struct ConfigAccount {
     /// You can find someone's UUID through many online services where you
     /// input their username.
     pub uuid: String,
+
+    /// UUID of the client token that is used to authenticate with the account provider
+    /// we need to store this to refresh the access token
+    /// for yggdrasil accounts(including elyby) this is a random generated uuid v4
+    /// for Microsoft accounts its the constant auth::ms::CLIENT_ID
+    pub client_token: String,
+
     /// Currently unimplemented, does nothing.
     pub skin: Option<String>, // TODO: Add skin visualization?
 
@@ -172,7 +180,12 @@ pub struct ConfigAccount {
     ///
     /// - `"Microsoft"`
     /// - `"ElyBy"`
+    /// - `"Yggdrasil"`
     pub account_type: Option<String>,
+
+    // for Yggdrasil accounts (including elyby) this stores
+    // the location of the authentication server and the authlib prefetch
+    pub account_provider: Option<YggdrasilProvider>,
 
     /// A game-readable "nice" username.
     ///

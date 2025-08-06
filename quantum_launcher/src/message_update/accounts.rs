@@ -1,13 +1,17 @@
 use auth::AccountData;
 use iced::Task;
 use ql_core::IntoStringError;
-use ql_instances::auth;
+use ql_instances::auth::{
+    self,
+    drasl::YggdrasilProvider,
+    elyby::{self, get_elyby_provider},
+};
 
 use crate::{
     config::ConfigAccount,
     state::{
-        AccountMessage, Launcher, MenuLoginElyBy, MenuLoginMS, Message, ProgressBar, State,
-        NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
+        AccountMessage, Launcher, MenuLoginElyBy, MenuLoginMS, MenuLoginYggdrasil, Message,
+        ProgressBar, State, NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
     },
 };
 
@@ -18,6 +22,7 @@ impl Launcher {
             | AccountMessage::Response2(Err(err))
             | AccountMessage::Response3(Err(err))
             | AccountMessage::ElyByLoginResponse(Err(err))
+            | AccountMessage::YggdrasilLoginResponse(Err(err))
             | AccountMessage::RefreshComplete(Err(err)) => {
                 self.set_error(err);
             }
@@ -53,14 +58,13 @@ impl Launcher {
                 let account_type = self
                     .accounts
                     .get(&username)
-                    .map(|n| n.account_type)
+                    .map(|n| n.account_type.clone())
                     .unwrap_or(auth::AccountType::Microsoft);
 
                 if let Err(err) = match account_type {
                     auth::AccountType::Microsoft => auth::ms::logout(&username),
-                    auth::AccountType::ElyBy => {
-                        auth::elyby::logout(username.strip_suffix(" (elyby)").unwrap_or(&username))
-                    }
+                    auth::AccountType::ElyBy => get_elyby_provider().logout(&username),
+                    auth::AccountType::Yggdrasil(provider) => provider.logout(&username),
                 } {
                     self.set_error(err);
                 }
@@ -127,6 +131,18 @@ impl Launcher {
                     is_from_welcome_screen,
                 });
             }
+            AccountMessage::OpenYggdrasil {
+                is_from_welcome_screen,
+            } => {
+                self.state = State::LoginYggdrasil(MenuLoginYggdrasil {
+                    url: String::new(),
+                    username: String::new(),
+                    password: String::new(),
+                    is_from_welcome_screen,
+                    show_password: false,
+                    is_loading: false,
+                })
+            }
 
             AccountMessage::ElyByUsernameInput(username) => {
                 if let State::LoginElyBy(menu) = &mut self.state {
@@ -176,6 +192,48 @@ impl Launcher {
                     }
                 }
             }
+
+            // yggdrasil
+            AccountMessage::YggdrasilUsernameInput(username) => {
+                if let State::LoginYggdrasil(menu) = &mut self.state {
+                    menu.username = username;
+                }
+            }
+            AccountMessage::YggdrasilPasswordInput(password) => {
+                if let State::LoginYggdrasil(menu) = &mut self.state {
+                    menu.password = password;
+                }
+            }
+            AccountMessage::YggdrasilUrlInput(url) => {
+                if let State::LoginYggdrasil(menu) = &mut self.state {
+                    menu.url = url;
+                }
+            }
+            AccountMessage::YggdrasilShowPassword(t) => {
+                if let State::LoginYggdrasil(menu) = &mut self.state {
+                    menu.show_password = t;
+                }
+            }
+
+            AccountMessage::YggdrasilLogin => {
+                if let State::LoginYggdrasil(menu) = &mut self.state {
+                    let password = menu.password.clone();
+                    let url = menu.url.clone();
+                    let username = menu.username.clone();
+
+                    return Task::perform(
+                        async move {
+                            auth::drasl::YggdrasilProvider::login_new(url, username, password).await
+                        },
+                        |n| Message::Account(AccountMessage::YggdrasilLoginResponse(n.strerr())),
+                    );
+                }
+            }
+            AccountMessage::YggdrasilLoginResponse(Ok(acc)) => {
+                if let State::LoginYggdrasil(menu) = &mut self.state {
+                    return self.account_response_3(acc);
+                }
+            }
         }
         Task::none()
     }
@@ -190,22 +248,29 @@ impl Launcher {
     }
 
     pub fn account_refresh(&mut self, account: &AccountData) -> Task<Message> {
-        match account.account_type {
+        let cloned_account = account.clone();
+        let provider = get_elyby_provider();
+
+        match cloned_account.account_type.clone() {
             auth::AccountType::Microsoft => {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
 
                 Task::perform(
                     auth::ms::login_refresh(
-                        account.username.clone(),
-                        account.refresh_token.clone(),
+                        cloned_account.username.clone(),
+                        cloned_account.refresh_token.clone(),
                         Some(sender),
                     ),
                     |n| Message::Account(AccountMessage::RefreshComplete(n.strerr())),
                 )
             }
             auth::AccountType::ElyBy => Task::perform(
-                auth::elyby::login_refresh(account.username.clone(), account.refresh_token.clone()),
+                async move { provider.login_refresh(&cloned_account).await },
+                |n| Message::Account(AccountMessage::RefreshComplete(n.strerr())),
+            ),
+            auth::AccountType::Yggdrasil(provider) => Task::perform(
+                async move { provider.login_refresh(&cloned_account).await },
                 |n| Message::Account(AccountMessage::RefreshComplete(n.strerr())),
             ),
         }
@@ -220,6 +285,8 @@ impl Launcher {
             username.clone(),
             ConfigAccount {
                 uuid: data.uuid.clone(),
+                client_token: data.client_token.clone(),
+                account_provider: None,
                 skin: None,
                 account_type: Some(data.account_type.to_string()),
                 username_nice: Some(data.nice_username.clone()),

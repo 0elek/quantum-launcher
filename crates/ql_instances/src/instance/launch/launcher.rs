@@ -96,7 +96,7 @@ impl GameLauncher {
                 )));
             };
 
-        if let Some(AccountType::ElyBy) = account_details.map(|n| n.account_type) {
+        if let Some(AccountType::ElyBy) = account_details.map(|n| &n.account_type) {
             if !self.version_json.is_legacy_version()
                 && !game_arguments.iter().any(|n| n.contains("uuid"))
             {
@@ -255,7 +255,11 @@ impl GameLauncher {
             args.push("-Dminecraft.api.session.host=https://nope.invalid".to_owned());
             args.push("-Dminecraft.api.services.host=https://nope.invalid".to_owned());
         } else if auth.is_some_and(AccountData::is_elyby) {
-            args.push(crate::auth::elyby::get_authlib_injector().await?);
+            args.push(crate::auth::drasl::get_authlib_injector("ely.by".to_string()).await?);
+        } else {
+            if let AccountType::Yggdrasil(provider) = auth.unwrap().account_type.clone() {
+                args.push(crate::auth::drasl::get_authlib_injector(provider.domain()).await?);
+            }
         }
 
         if cfg!(target_pointer_width = "32") {

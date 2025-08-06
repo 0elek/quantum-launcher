@@ -91,7 +91,11 @@ impl Launcher {
             .padding(10)
             .into(),
             State::GenericMessage(msg) => widget::column![widget::text(msg)].padding(10).into(),
+
+            State::LoginElyBy(menu) => menu.view(self.tick_timer),
             State::LoginMS(menu) => menu.view(),
+            State::LoginYggdrasil(menu) => menu.view(self.tick_timer),
+
             State::AccountLogin => widget::column![
                 back_button().on_press(Message::LaunchScreenOpen {
                     message: None,
@@ -112,6 +116,11 @@ impl Launcher {
                                 is_from_welcome_screen: false
                             }
                         )),
+                        widget::button("Login with custom auth server").on_press(Message::Account(
+                            AccountMessage::OpenYggdrasil {
+                                is_from_welcome_screen: false
+                            }
+                        ))
                     ]
                     .align_x(iced::Alignment::Center)
                     .spacing(5),
@@ -216,7 +225,6 @@ impl Launcher {
                     .spacing(10)
                     .into()
             }
-            State::LoginElyBy(menu) => menu.view(self.tick_timer),
             State::CurseforgeManualDownload(menu) => menu.view(),
             State::ExportInstance(menu) => menu.view(self.tick_timer),
         }
